@@ -1,0 +1,30 @@
+---
+title: 'teknotherm'
+author: "[Orhan Aktaş](https://www.linkedin.com/in/orhanaktas/)"
+date: "29 December 2021"
+output:
+  html_document:
+    theme: flatly
+    df_print: paged
+    number_sections: true
+  pdf_document: default
+  word_document: default
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(
+	echo = TRUE,
+	message = FALSE,
+	warning = FALSE
+)
+```
+
+```{r libraries, include=FALSE}
+library(tidyverse)
+library(magrittr)
+library(readxl)
+```
+
+# Data import
+path <- "data/excel/Kesit_20180409_V3.xlsx"
+temp <- read_excel(path)

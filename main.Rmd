@@ -22,9 +22,87 @@ knitr::opts_chunk$set(
 ```{r libraries, include=FALSE}
 library(tidyverse)
 library(magrittr)
-library(readxl)
+library(hms)
+library(lubridate)
 ```
 
 # Data import
-path <- "data/excel/Kesit_20180409_V3.xlsx"
-temp <- read_excel(path)
+
+```{r}
+data <- readRDS("C:/Users/user/Desktop/herşey/R_projects/teknotherm/data.RDS")
+```
+
+tidy data
+
+```{r}
+data<-data %>%
+        mutate(time=as_hms(time))
+head(data)
+```
+
+# Analiz
+
+Öncelikle verinin alındığı zamanları inceleyelim. Bakalım sistematik aralıklarla alınan bir veri mi?
+
+```{r}
+
+data<-data %>%
+        mutate(dist=time-lag(time))
+head(data)
+
+data %>%  mutate(dist=as.numeric(dist)/60) %>% ggplot(aes(dist))+geom_histogram(binwidth =1)
+```
+
+güzel. genelde 5 dk civarı ancak 25 dk civarı bir outlier var. bakalım saat kaçta gerçekleşmiş bu outlier
+
+```{r}
+data %>% mutate(dist=as.numeric(dist)) %>% slice(2:n()) %>% filter(dist==max(dist))
+```
+
+02:12:30'da 1515 saniyelik (25 dakika 25 saniye) bir ara olmuş.
+
+Peki acaba aradaki farka göre ortalamalar değişiyor mu?
+
+```{r}
+data %>% ggplot(aes(x=dist/60,y=total))+geom_point(size=2, shape=23)
+data %>% ggplot(aes(x=dist/60,y=operator))+geom_point(size=2, shape=23)
+data %>% ggplot(aes(x=dist/60,y=wall))+geom_point(size=2, shape=23)
+
+```
+
+bir fark görünmüyor. zamana göre farklar nasıl değişiyor?
+
+```{r}
+data %>% ggplot(aes(x=time,y=dist))+geom_line()
+```
+
+evet 25 dk'lık fark çok açık. onun dışında saat 0 ve 1 arası 500 saniyenini üzerinde bir kaç ara olmuş. onun dışında makul bir yayılım görünüyor. şimdi ilk baktığımız histograma bir de saat 3 sonrası için yeniden bakalım.
+
+```{r}
+data %>% filter(time>hms::hms(hours = 3)) %>% mutate(dist=as.numeric(dist)) %>% ggplot(aes(x=dist))+geom_histogram(binwidth =60)
+```
+
+zamana göre ağırlık ortalamaları nasıl değişiyor. önce ayrık olarak inceleyelim.
+
+```{r}
+data %>% ggplot(aes(x=time))+geom_line(aes(y=operator))+geom_line(aes(y=wall),color="red")
+```
+
+saat 4'ten sonra pattern değişiyor gibi. şimdi de saatlik ortalamalara bakalım.
+
+```{r}
+
+data %>% mutate(hour=hour(time)) %>% group_by(hour) %>% summarise(op_avg=mean(operator),wa_avg=mean(wall)) %>% ggplot(aes(x=hour))+geom_line(aes(y=op_avg))+geom_line(aes(y=wa_avg),color="red")+geom_hline(yintercept = 14.3,color="blue")
+```
+
+zamana göre standart sapmalar nasıl değişiyor?
+
+```{r}
+data %>% mutate(hour=hour(time)) %>% group_by(hour) %>% summarise(sd=sd(total)) %>% ggplot(aes(x=hour))+geom_col(aes(y=sd))
+```
+
+toplu gösterim
+
+```{r}
+data %>% mutate(hour=hour(time)) %>% ggplot(aes(x=factor(hour),y=operator))+geom_violin(aes(fill = factor(hour)))+ geom_jitter(height = 0, width = 0.05)+geom_hline(yintercept = 14.3,color="blue")
+```

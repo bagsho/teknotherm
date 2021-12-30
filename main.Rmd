@@ -42,6 +42,52 @@ head(data)
 
 # Analiz
 
+ortalamaların dağılımı
+
+```{r}
+data %>%  
+  select(time,operator,wall) %>% 
+  pivot_longer(!time, names_to = "tip", values_to = "agirlik") %>% 
+  ggplot(aes(agirlik))+
+    geom_histogram(aes(fill=tip),binwidth =0.2,alpha=0.3)+
+    geom_density(aes(y=after_stat(count)/4))+
+    facet_grid(tip~.)+ 
+    theme(legend.position = "none") 
+```
+
+normal dağılım olarak bakalım
+
+```{r}
+
+
+#data %>%   summarise(mean_op = mean(operator),mean_wa=mean(wall)) %>% view()
+
+  ggplot()+ 
+    geom_function(fun = dnorm, 
+                  args = list(mean = mean(data$operator), 
+                              sd = sd(data$operator)),color="red")+
+    geom_function(fun = dnorm, 
+                  args = list(mean = mean(data$wall), 
+                              sd = sd(data$wall)))+
+    xlim(8,20)
+```
+
+bir de başka yolla bakalım.
+
+```{r}
+
+
+#data %>%   summarise(mean_op = mean(operator),mean_wa=mean(wall)) %>% view()
+
+  data %>% 
+    ggplot()+ 
+    geom_density(aes(operator),color="red")+
+    geom_density(aes(wall))+
+    xlim(8,20)
+```
+
+peki bu dağılıma bir de saatlere göre bakalım.
+
 Öncelikle verinin alındığı zamanları inceleyelim. Bakalım sistematik aralıklarla alınan bir veri mi?
 
 ```{r}
@@ -85,24 +131,89 @@ data %>% filter(time>hms::hms(hours = 3)) %>% mutate(dist=as.numeric(dist)) %>% 
 zamana göre ağırlık ortalamaları nasıl değişiyor. önce ayrık olarak inceleyelim.
 
 ```{r}
-data %>% ggplot(aes(x=time))+geom_line(aes(y=operator))+geom_line(aes(y=wall),color="red")
+data %>% ggplot(aes(x=time))+geom_line(aes(y=operator),color="red")+geom_line(aes(y=wall))
 ```
 
 saat 4'ten sonra pattern değişiyor gibi. şimdi de saatlik ortalamalara bakalım.
 
 ```{r}
 
-data %>% mutate(hour=hour(time)) %>% group_by(hour) %>% summarise(op_avg=mean(operator),wa_avg=mean(wall)) %>% ggplot(aes(x=hour))+geom_line(aes(y=op_avg))+geom_line(aes(y=wa_avg),color="red")+geom_hline(yintercept = 14.3,color="blue")
+data %>% 
+  mutate(hour=hour(time)) %>% 
+  group_by(hour) %>% 
+  summarise(op_avg=mean(operator),wa_avg=mean(wall)) %>% 
+  ggplot(aes(x=hour))+
+    geom_line(aes(y=op_avg),color="red")+
+    geom_point(aes(y=op_avg),color="red")+
+    geom_line(aes(y=wa_avg))+
+    geom_point(aes(y=wa_avg))+
+    geom_hline(yintercept = 14.3,color="blue")+ 
+    scale_x_continuous(breaks=seq(0,8,1))
 ```
 
 zamana göre standart sapmalar nasıl değişiyor?
 
 ```{r}
-data %>% mutate(hour=hour(time)) %>% group_by(hour) %>% summarise(sd=sd(total)) %>% ggplot(aes(x=hour))+geom_col(aes(y=sd))
+data %>% 
+  mutate(hour=hour(time)) %>% 
+  group_by(hour) %>% 
+  summarise(sd=sd(total)) %>% 
+  ggplot(aes(x=hour))+
+    geom_col(aes(y=sd))+
+    scale_x_continuous(breaks=seq(0,8,1))
 ```
 
 toplu gösterim
 
 ```{r}
-data %>% mutate(hour=hour(time)) %>% ggplot(aes(x=factor(hour),y=operator))+geom_violin(aes(fill = factor(hour)))+ geom_jitter(height = 0, width = 0.05)+geom_hline(yintercept = 14.3,color="blue")
+data %>% 
+  mutate(hour=hour(time)) %>% 
+  ggplot(aes(x=factor(hour),y=operator))+
+    geom_violin(aes(fill = factor(hour)))+ 
+    geom_jitter(height = 0, width = 0.05)+
+    geom_hline(yintercept = 14.3,color="blue")+
+    coord_flip()
+```
+
+deneme
+
+```{r}
+data %>% 
+  mutate(saat=factor(hour(time))) %>%  
+  select(saat,operator,wall) %>%
+  pivot_longer(!saat, names_to = "tip", values_to = "agirlik") %>% 
+  ggplot(aes(x=1,y=agirlik))+
+    geom_violin(aes(fill = 1))+ 
+    geom_jitter(height = 0, width = 0.05)+
+    geom_hline(yintercept = 14.3,color="blue")+
+    coord_flip()+
+    theme_bw() +
+    theme(axis.ticks.y = element_blank(),
+          axis.text.y = element_blank())
+```
+
+bir başka alternatif
+
+```{r}
+data %>% 
+  mutate(saat=factor(hour(time))) %>%  
+  select(saat,wall,operator) %>%
+  pivot_longer(!saat, names_to = "tip", values_to = "agirlik") %>% 
+  mutate(tip=recode(tip, "wall"="Duvar", "operator"="Operatör")) %>% 
+  ggplot(aes(x=factor(saat/saat),y=agirlik))+
+    geom_violin(aes(fill = saat))+ 
+    geom_jitter(height = 0, width = 0.05)+
+    geom_hline(yintercept = 14.3,color="blue")+
+    coord_flip()+
+    theme_bw() +
+    facet_grid(
+      forcats::fct_relevel(saat, rev)~
+      forcats::fct_relevel(tip, "wall", "operator"))+
+    theme(axis.ticks.y = element_blank(),
+          axis.text.y = element_blank(),
+          strip.text.y = element_text(angle = 0))+
+    xlab( "saat")+ 
+    theme(legend.position = "none") 
+
+    
 ```
